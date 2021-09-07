@@ -3,15 +3,15 @@ import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from pretty_help import PrettyHelp
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-bot = commands.Bot(command_prefix=commands.when_mentioned_or("-"), intents=discord.Intents.all(), case_insensitive=True)
+bot = commands.Bot(command_prefix=commands.when_mentioned_or("-"), intents=discord.Intents.all(), case_insensitive=True, help_command=PrettyHelp(color=0xff0000, active_time=60, show_index=False))
 
 
-initial_extensions = ['cogs.fun',
-                      'cogs.music']
+initial_extensions = ['cogs.music']
 
 
 if __name__ == '__main__':
@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
 @bot.event
 async def on_ready():
-    await bot.change_presence(activity=discord.Game(f'-help'))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="-help"))
     print("Bot is ready!")
 
 @bot.event
