@@ -1,5 +1,6 @@
 import asyncio
 import datetime as dt
+import enum
 import random
 import re
 import typing as t
@@ -207,11 +208,20 @@ class Player(wavelink.Player):
             self.queue.add(*tracks.tracks)
         elif len(tracks) == 1:
             self.queue.add(tracks[0])
-            await ctx.send(f"Added {tracks[0].title} to the queue.")
+            
+            embed = discord.Embed(
+            description=f"Added **{tracks[0].title}** to the queue. [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
         else:
             if (track := await self.choose_track(ctx, tracks)) is not None:
                 self.queue.add(track)
-                await ctx.send(f"Added {track.title} to the queue.")
+                embed = discord.Embed(
+            description=f"Added **{track.title}** to the queue. [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
         if not self.is_playing and not self.queue.is_empty:
             await self.start_playback()
@@ -232,7 +242,7 @@ class Player(wavelink.Player):
                     for i, t in enumerate(tracks[:5])
                 )
             ),
-            color=ctx.author.color,
+            color=0xff0000,
             timestamp=dt.datetime.utcnow()
         )
         embed.set_footer(text=f"Invoked by {ctx.author.display_name}", icon_url=ctx.author.avatar_url)
@@ -292,7 +302,11 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
     async def cog_check(self, ctx):
         if isinstance(ctx.channel, discord.DMChannel):
-            await ctx.send("Music commands are not available in DMs.")
+            embed = discord.Embed(
+            description="Music commands are not available in DMs.",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
             return False
 
         return True
@@ -320,26 +334,38 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         elif isinstance(obj, discord.Guild):
             return self.wavelink.get_player(obj.id, cls=Player)
 
-    @commands.command(name="connect", aliases=["join", "j"])
+    @commands.command(name="connect", aliases=["join", "j"], help="Connects the bot to your voice channel or channel given by your query")
     async def connect_command(self, ctx, *, channel: t.Optional[discord.VoiceChannel]):
         player = self.get_player(ctx)
         channel = await player.connect(ctx, channel)
-        await ctx.send(f"Connected to {channel.name}.")
+        embed = discord.Embed(
+            description=f"Connected to **{channel.name}!** [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
     @connect_command.error
     async def connect_command_error(self, ctx, exc):
         if isinstance(exc, AlreadyConnectedToChannel):
-            await ctx.send("Already connected to a voice channel.")
+            embed = discord.Embed(
+            description="Already connected to a voice channel!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
         elif isinstance(exc, NoVoiceChannel):
-            await ctx.send("You must type voice channel name or be connected to a voice channel to use this command.")
+            embed = discord.Embed(
+            description="You must type voice channel name or be connected to a voice channel to use this command!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="leave", aliases=["disconnect", "l"], help="Makes bot leaves voice channel")
+    @commands.command(name="disconnect", aliases=["leave", "l", "dc"], help="Disconnects the bot from your voice channel and clears the queue")
     async def disconnect_command(self, ctx):
         player = self.get_player(ctx)
         await player.teardown()
         await ctx.message.add_reaction("👌")
 
-    @commands.command(name="play", aliases=["p"], help="Plays the music")
+    @commands.command(name="play", aliases=["p"], help="Loads your input and adds it to the queue; If there is no playing track, then it will start playing")
     async def play_command(self, ctx, *, query: t.Optional[str]):
         player = self.get_player(ctx)
 
@@ -351,7 +377,14 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
                 raise QueueIsEmpty
 
             await player.set_pause(False)
-            await ctx.send("Playback resumed")
+            embed = discord.Embed(
+            description=f"Playback resumed! [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
+
+        # elif query.startswith("https://soundcloud.com"):
+        #     await player.add_tracks(ctx, await self.wavelink.get_tracks(query))
         
         else:
             query = query.strip("<>")
@@ -363,11 +396,19 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     @play_command.error
     async def play_command_error(self, ctx, exc):
         if isinstance(exc, QueueIsEmpty):
-            await ctx.send("The queue is empty.")
+            embed = discord.Embed(
+            description="The queue is empty!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
         elif isinstance(exc, NoVoiceChannel):
-            await ctx.send("You must be in a voice channel to use this command.")
+            embed = discord.Embed(
+            description="You must be in a voice channel to use this command!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="pause")
+    @commands.command(name="pause", aliases=["break"], help="Pauses playback")
     async def pause_command(self, ctx):
         player = self.get_player(ctx)
         
@@ -375,14 +416,22 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             raise PlayerIsAlreadyPaused
         
         await player.set_pause(True)
-        await ctx.send("Playback paused")
+        embed = discord.Embed(
+            description=f"Playback paused! [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
     @pause_command.error
     async def pause_command_error(self, ctx, exc):
         if isinstance(exc, PlayerIsAlreadyPaused):
-            await ctx.send("Playback is already paused.")
+            embed = discord.Embed(
+            description="Playback is already paused!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="resume")
+    @commands.command(name="resume", aliases=["unpause", "continue"], help="Resumes playback")
     async def resume_command(self, ctx):
         player = self.get_player(ctx)
 
@@ -390,22 +439,34 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             raise PlayerIsAlreadyPlaying
         
         await player.set_pause(False)
-        await ctx.send("Playback resumed")
+        embed = discord.Embed(
+            description=f"Playback resumed [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
     @resume_command.error
     async def resume_command_error(self, ctx, exc):
         if isinstance(exc, PlayerIsAlreadyPlaying):
-            await ctx.send("Already playing")
+            embed = discord.Embed(
+            description="Already playing!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="stop")
-    async def stop_command(self, ctx):
+    @commands.command(name="clear", aliases=["stop", "c", "empty"], help="Removes all tracks from the queue")
+    async def clear_command(self, ctx):
         player = self.get_player(ctx)
         player.queue.empty()
         await player.stop()
-        await ctx.send("Queue cleared")
+        embed = discord.Embed(
+            description=f"Queue cleared! [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
-    @commands.command(name="next", aliases=["skip", "s"])
-    async def next_command(self, ctx):
+    @commands.command(name="skip", aliases=["next", "s"], help="Skips to the next song")
+    async def skip_command(self, ctx):
         player = self.get_player(ctx)
 
         if not player.queue.upcoming:
@@ -419,8 +480,8 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         await ctx.send(embed=embed)
         await ctx.message.add_reaction("👌")
 
-    @next_command.error
-    async def next_command_error(self, ctx, exc):
+    @skip_command.error
+    async def skip_command_error(self, ctx, exc):
         if isinstance(exc, QueueIsEmpty):
             embed = discord.Embed(
                 description="The queue is empty!",
@@ -429,13 +490,13 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             await ctx.send(embed=embed)
         elif isinstance(exc, NoMoreTracks):
             embed = discord.Embed(
-                description="There are no more tracks in the queue.",
+                description="There are no more tracks in the queue!",
                 color=0xff0000
             )
             await ctx.send(embed=embed)
 
-    @commands.command(name="previous", aliases=["back", "b"], help="Backs to the previous track")
-    async def previous_command(self, ctx):
+    @commands.command(name="back", aliases=["previous", "b"], help="Skips to the previous song")
+    async def back_command(self, ctx):
         player = self.get_player(ctx)
 
         if not player.queue.history:
@@ -445,8 +506,8 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         await player.stop()
         await ctx.message.add_reaction("👌")
 
-    @previous_command.error
-    async def previous_command_error(self, ctx, exc):
+    @back_command.error
+    async def back_command_error(self, ctx, exc):
         if isinstance(exc, QueueIsEmpty):
             embed = discord.Embed(
                 description="The queue is empty!",
@@ -455,12 +516,12 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             await ctx.send(embed=embed)
         elif isinstance(exc, NoPreviousTracks):
             embed = discord.Embed(
-                description="There are no previous tracks in the queue.",
+                description="There are no previous tracks in the queue!",
                 color=0xff0000
             )
             await ctx.send(embed=embed)
 
-    @commands.command(name="shuffle")
+    @commands.command(name="shuffle", aliases=["sh"], help="Randomizes the current order of tracks in the queue")
     async def shuffle_command(self, ctx):
         player = self.get_player(ctx)
         player.queue.shuffle()
@@ -480,47 +541,78 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             )
             await ctx.send(embed=embed)
 
-    @commands.command(name="repeat", aliases=["loop"])
-    async def repeat_command(self, ctx, mode: str):
+    @commands.command(name="loop", aliases=["repeat"], help="Starts looping single track or all queue | modes: none, single, all")
+    async def loop_command(self, ctx, mode: str):
         if mode not in ("none", "single", "all"):
             raise InvalidRepeatMode
 
         player = self.get_player(ctx)
         player.queue.set_repeat_mode(mode)
-        await ctx.send(f"Repeat mode has been set to {mode}")
+        embed = discord.Embed(
+            description=f"Repeat mode has been set to **{mode}** [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
-    @commands.command(name="queue", aliases=["q"], help="Displays the queue")
-    async def queue_command(self, ctx, show: t.Optional[int] = 10):
+    @loop_command.error
+    async def loop_command_error(self, ctx, exc):
+        if isinstance(exc, InvalidRepeatMode):
+            embed = discord.Embed(
+                description="Invalid loop mode! (Modes: none, single, all)",
+                color=0xff0000
+            )
+            await ctx.send(embed=embed)
+
+    @commands.command(name="queue", aliases=["q", "list"], help="Displays the queue")
+    async def queue_command(self, ctx):
         player = self.get_player(ctx)
         
         if player.queue.is_empty:
             raise QueueIsEmpty
 
+        # embed = discord.Embed(
+        #     color=0xff0000,
+        #     timestamp=dt.datetime.utcnow()
+        # )
+        # embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=ctx.author.avatar_url)
+        # embed.add_field(
+        #     name="Currently playing",
+        #     value=getattr(player.queue.current_track, "title", "No tracks currently playing."),
+        #     inline=False
+        # )
+        # if upcoming := player.queue.upcoming:
+        #     embed.add_field(
+        #         name="Next up",
+        #         value=f"\n".join(t.title for t in upcoming),
+        #         inline=False
+        #     )
+
+        # await ctx.send(embed=embed)
         embed = discord.Embed(
-            color=ctx.author.color,
-            timestamp=dt.datetime.utcnow()
+            color=0xff0000,
+            timestamp=dt.datetime.utcnow(),
+            description = f"**Currently playing:** {player.queue.current_track.title}\n"
         )
         embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=ctx.author.avatar_url)
-        embed.add_field(
-            name="Currently playing",
-            value=getattr(player.queue.current_track, "title", "No tracks currently playing."),
-            inline=False
-        )
-        if upcoming := player.queue.upcoming:
-            embed.add_field(
-                name="Next up",
-                value="\n".join(t.title for t in upcoming[:show]),
-                inline=False
-            )
 
-        msg = await ctx.send(embed=embed)
+        i = 2
+
+        for song in player.queue.upcoming:
+            embed.description += f"\n**{i}.** {song.title}"
+            i += 1
+        
+        await ctx.send(embed=embed)
 
     @queue_command.error
     async def queue_command_error(self, ctx, exc):
         if isinstance(exc, QueueIsEmpty):
-            await ctx.send("The queue is empty.")
+            embed = discord.Embed(
+            description="The queue is empty!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.group(name="volume", invoke_without_command=True)
+    @commands.group(name="volume", invoke_without_command=True, aliases=["vol", "v"], help="Sets the player's volume | DONT USE")
     async def volume_group(self, ctx, volume: int):
         player = self.get_player(ctx)
 
@@ -531,14 +623,26 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             raise VolumeTooHigh
 
         await player.set_volume(volume)
-        await ctx.send(f"Volume set to {volume:,}%")
+        embed = discord.Embed(
+            description=f"Volume set to **{volume:,}%** [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
     @volume_group.error
     async def volume_group_error(self, ctx, exc):
         if isinstance(exc, VolumeTooLow):
-            await ctx.send("The volume must be 0% or above")
+            embed = discord.Embed(
+            description="The volume must be **0%** or above!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
         elif isinstance(exc, VolumeTooHigh):
-            await ctx.send("The volume must be 1000% or below")
+            embed = discord.Embed(
+            description=f"The volume must be **1000%** or below!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
     @volume_group.command(name="up")
     async def volume_up_command(self, ctx):
@@ -548,12 +652,20 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             raise MaxVolume
         
         await player.set_volume(value := min(player.volume + 10, 1000))
-        await ctx.send(f"Volume set to {value:,}%")
+        embed = discord.Embed(
+            description=f"Volume set to **{value:,}% [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
     @volume_up_command.error
     async def volume_up_command_error(self, ctx, exc):
         if isinstance(exc, MaxVolume):
-            await ctx.send("The player is already at max volume")
+            embed = discord.Embed(
+            description="The player is already at max volume!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
     @volume_group.command(name="down")
     async def volume_down_command(self, ctx):
@@ -563,14 +675,22 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             raise MinVolume
         
         await player.set_volume(value := max(0, player.volume - 10))
-        await ctx.send(f"Volume set to {value:,}%")
+        embed = discord.Embed(
+            description=f"Volume set to **{value:,}% [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
     @volume_down_command.error
     async def volume_down_command_error(self, ctx, exc):
         if isinstance(exc, MinVolume):
-            await ctx.send("The player is already at min volume")
+            embed = discord.Embed(
+            description="The player is already at min volume!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="lyrics")
+    @commands.command(name="lyrics", aliases=["lyric", "ly"], help="Displays lyrics for the currently playing track or searches for lyrics based on your query")
     async def lyrics_command(self, ctx, *, name: t.Optional[str]):
         player = self.get_player(ctx)
         name = name or player.queue.current_track.title
@@ -588,7 +708,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
                 embed = discord.Embed(
                     title=data["title"],
                     description=data["lyrics"],
-                    colour=ctx.author.colour,
+                    colour=0xff0000,
                     timestamp=dt.datetime.utcnow(),
                 )
                 embed.set_thumbnail(url=data["thumbnail"]["genius"])
@@ -598,9 +718,13 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     @lyrics_command.error
     async def lyrics_command_error(self, ctx, exc):
         if isinstance(exc, NoLyricsFound):
-            await ctx.send("No lyrics could be found.")
+            embed = discord.Embed(
+            description="No lyrics could be found!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="eq")
+    @commands.command(name="eq", help="Changes the preset of the equalizer to one of the given in query ('flat', 'boost', 'metal' or 'piano') | DONT USE")
     async def eq_command(self, ctx, preset: str):
         player = self.get_player(ctx)
 
@@ -609,14 +733,22 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             raise InvalidEQPreset
 
         await player.set_eq(eq())
-        await ctx.send(f"Equalizer adjusted to the {preset} preset.")
+        embed = discord.Embed(
+            description=f"Equalizer adjsuted to the **{preset}** preset! [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
     @eq_command.error
     async def eq_command_error(self, ctx, exc):
         if isinstance(exc, InvalidEQPreset):
-            await ctx.send("The EQ preset must be either 'flat', 'boost', 'metal' or 'piano'")
+            embed = discord.Embed(
+            description="The EQ preset must be either **'flat'**, **'boost'**, **'metal'** or **'piano'**",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="adveq", aliases=["aeq"], help="Advanced equalizer")
+    @commands.command(name="adveq", aliases=["aeq"], help="Advanced equalizer - changes dB on one of the 15 given bounds. | DONT USE")
     async def adveq_command(self, ctx, band: int, gain: float):
         player = self.get_player(ctx)
 
@@ -632,19 +764,29 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         player.eq_levels[band - 1] = gain / 10
         eq = wavelink.eqs.Equalizer(levels=[(i, gain) for i, gain in enumerate(player.eq_levels)])
         await player.set_eq(eq)
-        await ctx.send("Equalizer adjusted.")
+        embed = discord.Embed(
+            description=f"Equalizer adjsuted [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
     @adveq_command.error
     async def adveq_command_error(self, ctx, exc):
         if isinstance(exc, NonExistentEQBand):
-            await ctx.send(
-                "This is a 15 band equalizer -- the band number should be between 1 and 15, or one of the following "
-                "frequencies: " + ", ".join(str(b) for b in HZ_BANDS)
-            )
+            embed = discord.Embed(
+            description="This is a 15 band equalizer -- the band number should be between 1 and 15, or one of the following "
+                "frequencies: " + ", ".join(str(b) for b in HZ_BANDS),
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
         elif isinstance(exc, EQGainOutOfBounds):
-            await ctx.send("The EQ gain for any band should be between 10 dB and -10 dB.")
+            embed = discord.Embed(
+            description="The EQ gain for any band should be between 10 dB and -10 dB!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="playing", aliases=["np", "nowplaying", "now"])
+    @commands.command(name="playing", aliases=["np", "nowplaying", "now", "song", "songinfo", "si"], help="Displays info about the currently playing track")
     async def playing_command(self, ctx):
         player = self.get_player(ctx)
 
@@ -652,7 +794,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             PlayerIsAlreadyPaused
 
         embed=discord.Embed(
-            color=ctx.author.color,
+            color=0xff0000,
             timestamp=dt.datetime.utcnow()
         )
         embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=ctx.author.avatar_url)
@@ -672,12 +814,20 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     @playing_command.error
     async def playing_command_error(self, ctx, exc):
         if isinstance(exc, PlayerIsAlreadyPaused):
-            await ctx.send("There is no track currently playing.")
+            embed = discord.Embed(
+            description="There is no track currently playing!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
         if isinstance(exc, QueueIsEmpty):
-            await ctx.send("The queue is empty.")
+            embed = discord.Embed(
+            description="The queue is empty!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="skipto", aliases=[""])
-    async def skipto_command(self, ctx, index: int):
+    @commands.command(name="jump", aliases=["skipto"], help="Skips to the specified track")
+    async def jump_command(self, ctx, index: int):
         player = self.get_player(ctx)
 
         if player.queue.is_empty:
@@ -688,16 +838,28 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
         player.queue.position = index - 2
         await player.stop()
-        await ctx.send(f"Playing track in postion {index}.")
+        embed = discord.Embed(
+            description=f"Playing track in postion **{index}!** [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
-    @skipto_command.error
-    async def skipto_command_error(self, ctx, exc):
+    @jump_command.error
+    async def jump_command_error(self, ctx, exc):
         if isinstance(exc, QueueIsEmpty):
-            await ctx.send("There are no tracks in the queue.")
+            embed = discord.Embed(
+            description="There are no tracks in the queue!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
         elif isinstance(exc, NoMoreTracks):
-            await ctx.send("That index is out of the bounds of the queue.")
+            embed = discord.Embed(
+            description=f"That index is out of the bounds of the queue!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="restart")
+    @commands.command(name="restart", aliases=["replay", "rp"], help="Plays the current song from start")
     async def restart_command(self, ctx):
         player = self.get_player(ctx)
 
@@ -705,14 +867,22 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             raise QueueIsEmpty
 
         await player.seek(0)
-        await ctx.send("Track restarted.")
+        embed = discord.Embed(
+            description=f"Track restarted! [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
     @restart_command.error
     async def restart_command_error(self, ctx, exc):
         if isinstance(exc, QueueIsEmpty):
-            await ctx.send("The queue is empty.")
+            embed = discord.Embed(
+            description=f"The queue is empty!",
+            color=0xff0000
+        )
+            await ctx.send(embed=embed)
 
-    @commands.command(name="seek")
+    @commands.command(name="seek", help="Skips to the specified timestamp in the currently playing track | e.g. 1m30s or 30s or 1m0s")
     async def seek_command(self, ctx, position: str):
         player = self.get_player(ctx)
 
@@ -728,7 +898,11 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             secs = int(match.group(1))
 
         await player.seek(secs * 1000)
-        await ctx.send("Seeked.")
+        embed = discord.Embed(
+            description=f"Seeked! [{ctx.message.author.mention}]",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)
 
 def setup(bot):
     bot.add_cog(Music(bot))
