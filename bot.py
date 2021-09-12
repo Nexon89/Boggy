@@ -25,7 +25,7 @@ async def on_ready():
 
 @bot.event
 async def on_connect():
-    print(f" Connected to Discord (latency: {bot.latency*1000:,.0f} ms).")
+    print(f"Connected to Discord (latency: {bot.latency*1000:,.0f} ms)")
 
 @bot.event
 async def on_command_error(ctx, error):
