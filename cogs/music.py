@@ -8,6 +8,9 @@ from enum import Enum
 
 import aiohttp
 import discord
+from discord import message
+from discord import channel
+from discord.ext.commands.bot import Bot
 import wavelink
 from discord.ext import commands
 
@@ -267,11 +270,25 @@ class Player(wavelink.Player):
         try:
             if (track := self.queue.get_next_track()) is not None:
                 await self.play(track)
+            else:
+                time = 0
+                while True:
+                    await asyncio.sleep(1)
+                    time += 1
+                    if self.is_playing and not self.is_paused:
+                        time = 0
+                    if time == 750:
+                        await self.teardown()
+                    if not self.is_connected:
+                        break
         except QueueIsEmpty:
             pass
-
+        
     async def repeat_track(self):
         await self.play(self.queue.current_track)
+
+    # async def now_playing(self):
+    #     print("chuj ci w pysk")
         
 
 class Music(commands.Cog, wavelink.WavelinkMixin):
@@ -288,7 +305,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
     @wavelink.WavelinkMixin.listener()
     async def on_node_ready(self, node):
-        print(f" Wavelink node `{node.identifier}` ready.")
+        print(f"Wavelink node `{node.identifier}` is ready")
 
     @wavelink.WavelinkMixin.listener("on_track_stuck")
     @wavelink.WavelinkMixin.listener("on_track_end")
@@ -299,6 +316,9 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         else:
             await payload.player.advance()
 
+    # @wavelink.WavelinkMixin.listener
+    # async def on_track_start(self, node, payload):
+    #     await payload.player.now_playing()
 
     async def cog_check(self, ctx):
         if isinstance(ctx.channel, discord.DMChannel):
@@ -338,11 +358,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     async def connect_command(self, ctx, *, channel: t.Optional[discord.VoiceChannel]):
         player = self.get_player(ctx)
         channel = await player.connect(ctx, channel)
-        embed = discord.Embed(
-            description=f"Connected to **{channel.name}!** [{ctx.message.author.mention}]",
-            color=0xff0000
-        )
-        await ctx.send(embed=embed)
+        await ctx.message.add_reaction("👌")
 
     @connect_command.error
     async def connect_command_error(self, ctx, exc):
@@ -382,9 +398,6 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             color=0xff0000
         )
             await ctx.send(embed=embed)
-
-        # elif query.startswith("https://soundcloud.com"):
-        #     await player.add_tracks(ctx, await self.wavelink.get_tracks(query))
         
         else:
             query = query.strip("<>")
@@ -427,29 +440,6 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         if isinstance(exc, PlayerIsAlreadyPaused):
             embed = discord.Embed(
             description="Playback is already paused!",
-            color=0xff0000
-        )
-            await ctx.send(embed=embed)
-
-    @commands.command(name="resume", aliases=["unpause", "continue"], help="Resumes playback")
-    async def resume_command(self, ctx):
-        player = self.get_player(ctx)
-
-        if player.is_playing:
-            raise PlayerIsAlreadyPlaying
-        
-        await player.set_pause(False)
-        embed = discord.Embed(
-            description=f"Playback resumed [{ctx.message.author.mention}]",
-            color=0xff0000
-        )
-        await ctx.send(embed=embed)
-
-    @resume_command.error
-    async def resume_command_error(self, ctx, exc):
-        if isinstance(exc, PlayerIsAlreadyPlaying):
-            embed = discord.Embed(
-            description="Already playing!",
             color=0xff0000
         )
             await ctx.send(embed=embed)
